@@ -109,7 +109,8 @@ def inference():
               loss = loss_fn(preds, targets)
               total_loss += loss.item()
               total_ppl += np.exp(loss.item())
-        if !config.generate_sentences:
+        
+        if config.generate_sentences != True:
             print('====> Test : Average loss: {:.4f} \tPerplexity: {:.5f}'.format(
             total_loss/n_batches, total_ppl/n_batches))
             print(f"n_batches : {n_batches}, n_samples : {n_samples}")
