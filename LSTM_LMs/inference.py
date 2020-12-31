@@ -86,9 +86,6 @@ def inference():
                 # So, concatenate tensors split by multi-gpu usage
                 preds = torch.cat([pred for pred in preds], dim=0)
                 # |preds| = (batch_size, max_seq_len-1, len(vocab))
-            else:
-                preds = preds.view(-1, len(vocab)).contiguous()    
-                # |preds| = (batch_size*seq_len, len(vocab))
 
             if config.generate_sentences:
               # Returns the largest element of the predictions
@@ -103,6 +100,9 @@ def inference():
                   print('#{} =============='.format(iter_*config.batch_size + i))
                   print('Actu:\t{}\nPred:\t{}\n'.format(target_sentences, pred_sentences))
             else:
+              preds = preds.view(-1, len(vocab)).contiguous()    
+              # |preds| = (batch_size*seq_len, len(vocab))
+              
               targets = targets.view(-1).contiguous()
               # |targets| = (batch_size*seq_len)
               
