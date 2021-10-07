@@ -1,0 +1,153 @@
+from sklearn.metrics import roc_curve, precision_recall_curve
+from sklearn.metrics import average_precision_score, auc, accuracy_score
+from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
+
+import time 
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from inspect import signature
+import seaborn as sns
+plt.style.use('ggplot')
+
+"""
+    Model evaluation and performances graphs.
+"""
+
+def fbeta_score(precision, recall, beta=1.0):
+    numerator = (1 + beta**2) * (precision * recall)
+    denominator = (beta**2 * precision) + recall
+    return np.divide(numerator, denominator, out=np.zeros_like(numerator), where=denominator!=0)
+
+    
+def plot_PRC_PRThreshold_ROC_Confusion_Matrix(y_true, y_prob, show_graphs = True, model_name = None):
+    fig = plt.figure(figsize=(15, 13))
+    
+    #---------------------------------------------------#
+    ax = fig.add_subplot(2,2,1)
+    precision, recall, thresholds = precision_recall_curve(y_true, y_prob)
+    
+    average_precision = average_precision_score(y_true, y_prob)
+    
+    # In matplotlib < 1.5, plt.fill_between does not have a 'step' argument
+    step_kwargs = ({'step': 'post'}
+                   if 'step' in signature(plt.fill_between).parameters
+                   else {})
+    plt.step(recall, precision, color='b', alpha=0.2,
+             where='post')
+    plt.fill_between(recall, precision, alpha=0.2, color='b', **step_kwargs)
+
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.ylim([0.0, 1.05])
+    plt.xlim([0.0, 1.0])
+    plt.title('Precision-Recall curve: APr = {0:0.3f}'.format(average_precision))
+    
+    #---------------------------------------------------#
+    ax = fig.add_subplot(2,2,2)
+    precision, recall, thresholds = precision_recall_curve(y_true, y_prob)    
+    plt.plot(thresholds, precision[1:], label="Precision",linewidth=1.5)
+    plt.plot(thresholds, recall[1:], label="Recall",linewidth=1.5)
+    plt.title('Precision and recall for different threshold values')
+    plt.xlabel('Threshold')
+    plt.ylabel('Precision/Recall')
+    
+    f1_score_ = fbeta_score(precision[1:], recall[1:], beta=1.0)
+    f2_score = fbeta_score(precision[1:], recall[1:], beta=2.0)
+    f1_macro = [f1_score(y_true, (y_prob >= thres).astype(int), average='macro') for thres in thresholds] 
+    
+    thr_for_max_f1 = thresholds[np.nanargmax(f1_score_)]
+    thr_for_max_f2 = thresholds[np.nanargmax(f2_score)]
+    thr_for_max_f1_macro = thresholds[np.nanargmax(f1_macro)]
+    
+    print(precision.shape, recall.shape, thresholds.shape, f1_score_.shape)
+    print(f'Accuracy@Best_F1Thr: {round(accuracy_score(y_true, (y_prob >= thr_for_max_f1).astype(int)), 2)}, F1_score : {np.nanmax(f1_score_):.3f}, threshold : {thr_for_max_f1:.3f}, precision : {precision[np.nanargmax(f1_score_)]:.3f}, recall : {recall[np.nanargmax(f1_score_)]:.3f}')
+    print(f'Accuracy@Best_F2Thr: {round(accuracy_score(y_true, (y_prob >= thr_for_max_f2).astype(int)), 2)}, F2_score : {np.nanmax(f2_score):.3f}, threshold : {thr_for_max_f2:.3f}, precision : {precision[np.nanargmax(f2_score)]:.3f}, recall : {recall[np.nanargmax(f2_score)]:.3f}')
+    print(f'Accuracy@Best_F1_macroThr: {round(accuracy_score(y_true, (y_prob >= thr_for_max_f1_macro).astype(int)), 2)}, F1_macro : {np.nanmax(f1_macro):.3f}, threshold : {thr_for_max_f1_macro:.3f}, precision : {precision[np.nanargmax(f1_macro)]:.3f}, recall : {recall[np.nanargmax(f1_macro)]:.3f}')
+    
+    plt.plot(thresholds, f1_score_, label='F1_score', linewidth=1.5, color='k')
+    plt.axvline(thr_for_max_f1, label=f'Best-F1_score : {np.nanmax(f1_score_):.3f}', linestyle='--', color='g')
+    plt.axvline(thr_for_max_f2, label=f'Best-F2_score : {np.nanmax(f2_score):.3f}', linestyle='--', color='m')
+    plt.axvline(thr_for_max_f1_macro, label=f'Best-F1_macro : {np.nanmax(f1_macro):.3f}', linestyle='--', color='b')
+    
+    plt.legend()
+    
+    #---------------------------------------------------#
+    ax = fig.add_subplot(2,2,3)
+    fpr, tpr, thres = roc_curve(y_true, y_prob)    
+    roc_auc = auc(fpr, tpr) 
+    
+    plt.plot(fpr, tpr, color='darkorange',
+             lw=1.5, label='ROC curve (area = %0.2f)' % roc_auc)
+    plt.plot([0, 1], [0, 1], color='navy', lw=1.5, linestyle='--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('Receiver Operating Characteristic curve (ROC)')
+    plt.legend(loc="upper left")
+
+    #---------------------------------------------------#
+    ax = fig.add_subplot(2,2,4)
+    cm = confusion_matrix(y_true, y_prob > thr_for_max_f1_macro)
+    sns.heatmap(cm, annot=True, annot_kws={'size':15}, fmt='d', cmap='Blues')
+    plt.title('Confusion matrix')
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+    
+    #------------------ Plot the 4 performance curves -----------------------#
+    if show_graphs:
+        plt.show()
+
+    if model_name:
+        prec_for_f1 = precision[np.nanargmax(f1_score_)]
+        recall_for_f1 = recall[np.nanargmax(f1_score_)]
+
+        prec_for_f2 = precision[np.nanargmax(f2_score)]
+        recall_for_f2 = recall[np.nanargmax(f2_score)]
+
+        prec_for_f1_macro = precision[np.nanargmax(f1_macro)]
+        recall_for_f1_macro = recall[np.nanargmax(f1_macro)]
+        
+        model_name_str = model_name if isinstance(model_name, str) else model_name.__class__.__name__ 
+        
+        results_summary = {'model_instance': model_name, 'model_name': model_name_str, 'AP' : average_precision, 'ROC_AUC' : roc_auc, 
+                          'F1_macro' : np.nanmax(f1_macro), 'thresh_f1_macro' : thr_for_max_f1_macro,
+                          'acc_for_f1_macro': accuracy_score(y_true, (y_prob >= thr_for_max_f1_macro).astype(int)),
+                          'prec_for_f1_macro': prec_for_f1_macro, 'recall_for_f1_macro':  recall_for_f1_macro,
+                           
+                          'F1_score' : np.nanmax(f1_score_), 'thresh_f1' : thr_for_max_f1,
+                          'acc_for_f1': accuracy_score(y_true, (y_prob >= thr_for_max_f1).astype(int)),
+                          'prec_for_f1': prec_for_f1, 'recall_for_f1':  recall_for_f1,
+                          'F2_score' : np.nanmax(f2_score), 'thresh_f2' : thr_for_max_f2,
+                          'acc_for_f2': accuracy_score(y_true, (y_prob >= thr_for_max_f2).astype(int)),
+                          'prec_for_f2': prec_for_f2, 'recall_for_f2':  recall_for_f2}
+
+        return results_summary
+
+"""
+    Prediction and evaluation on 2 subsets (train, test).
+    Returns the predicted probabilities on the train and test sets.
+"""
+def predict_and_evaluate_on_train_test_sets(clf, X_train, X_test, y_train, y_test):
+    
+    if hasattr(clf, 'predict_proba'):
+        print('Model has a predict_proba method')
+        y_train_pred = clf.predict(X_train)
+        y_test_pred = clf.predict(X_test)
+        
+        y_train_prob = clf.predict_proba(X_train)
+        y_test_prob = clf.predict_proba(X_test)
+    else:
+        print('Model has not a predict_proba method')
+        y_train_pred = clf.predict(X_train)
+        y_test_pred = clf.predict(X_test)
+        
+        y_train_prob = clf.predict_proba(X_train)
+        y_test_prob = clf.predict_proba(X_test)
+
+    
+    print('Report on Train_set \n', classification_report(y_train, y_train_pred))
+    print('Report on Test_set \n', classification_report(y_test, y_test_pred))    
+
+    return y_train_prob, y_test_prob
