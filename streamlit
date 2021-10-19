@@ -1,0 +1,36 @@
+# This is a sample Python script.
+​
+​
+​
+​
+import streamlit as st
+import pandas as pd
+from st_aggrid import AgGrid
+​
+data = {'first_column':  [' tout comme le Front Polisario. Sa culture est berbéro-arabe depuis plusieurs siècles, et spagne. Les Marocains sont essentiellement de confession musulmane.', 'second_value'],
+        'second_column': ['first_value', 'second_value']}
+​
+df = pd.DataFrame(data)
+​
+st.title("M-S")
+​
+​
+​
+col1, col2 = st.columns([4,8])
+​
+​
+​
+with col1:
+    with st.form(key="form3"):
+​
+        company = st.selectbox('Company', ['Company1', 'Company2', 'Company3'], key="form1")
+        year1 = st.checkbox('2018', key="form1")
+        year2 = st.checkbox('2019', key="form1")
+        year3 = st.checkbox('2020', key="form1")
+        topic = st.selectbox('Topic', ['Topic1', 'Topic2', 'Topic3'], key="form1")
+        submit = st.form_submit_button(label="Search")
+​
+with col2:
+    if submit:
+        st.success("search for {} and {} ".format(company, topic ) )
+        AgGrid(df,height= 500, fit_columns_on_grid_load=True)
